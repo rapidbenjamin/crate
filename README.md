@@ -175,6 +175,55 @@ If you liked this project, you can donate to support it ❤️
 Looking for a developer to build your next idea or need a developer to work remotely? Get in touch: [atul.12788@gmail.com](mailto:atul.12788@gmail.com)
 
 
+
+
+from flask import Flask
+from kafka import KafkaConsumer
+from feast import Client, FeatureSet, ValueType
+
+app = Flask(__name__)
+
+@app.route("/calculate_difference", methods=['POST'])
+def consume_and_ingest():
+    # Connect to Feast
+    feast_client = Client()
+
+    # Define the feature set schema
+    feature_set = FeatureSet(
+        name="total_difference",
+        features=[
+            ("difference", ValueType.INT64),
+        ],
+        max_age="1d",
+    )
+
+    # Create a Kafka consumer
+    consumer = KafkaConsumer(
+        "events_topic",
+        bootstrap_servers="localhost:9092",
+        group_id="feast_consumer_group",
+    )
+
+    # Initialize difference
+    difference = 0
+
+    # Consume events from Kafka
+    for message in consumer:
+        event = message.value.decode("utf-8").split(",")
+        event_type = int(event[2])
+
+        # Update difference based on event type
+        if event_type == 1:
+            difference += 1
+        elif event_type == 2:
+            difference -= 1
+
+    # Store the total difference in Feast
+    feast_client.ingest(feature_set, [{"difference": difference}])
+
+    return "Consumed events and ingested data successfully!"
+
+
 ## License
 Copyright (c) 2018 Atul Yadav http://github.com/atulmy
 
